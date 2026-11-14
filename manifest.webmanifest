@@ -1,0 +1,10 @@
+{
+  "name": "Drift Corner",
+  "short_name": "Drift Corner",
+  "description": "Shared thrift inventory and sales",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f7f7f5",
+  "theme_color": "#111827",
+  "icons": []
+}
