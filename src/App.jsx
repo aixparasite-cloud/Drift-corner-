@@ -86,18 +86,103 @@ const [uploading, setUploading] = useState(false);
   async function signOut() { await supabase.auth.signOut(); }
 
  async function addItem(e) {
-    e.preventDefault();
+   
+async function addItem(e) {
+  e.preventDefault();
+
+  if (uploading) return;
+
+  setUploading(true);
+  let uploadedPath = null;
+
+  try {
+    let photoUrl = null;
+
+    if (photo) {
+      if (!["image/jpeg", "image/png", "image/webp"].includes(photo.type)) {
+        throw new Error("Only JPG, PNG and WebP images are supported.");
+      }
+
+      if (photo.size > 5 * 1024 * 1024) {
+        throw new Error("Image must be 5 MB or smaller.");
+      }
+
+      const extension = photo.type === "image/png"
+        ? "png"
+        : photo.type === "image/webp"
+        ? "webp"
+        : "jpg";
+
+      uploadedPath = `${session.user.id}/${crypto.randomUUID()}.${extension}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("product-photos")
+        .upload(uploadedPath, photo, {
+          contentType: photo.type,
+          upsert: false
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage
+        .from("product-photos")
+        .getPublicUrl(uploadedPath);
+
+      photoUrl = data.publicUrl;
+    }
+
     const payload = {
-      name: form.name.trim(), category:form.category, size:form.size.trim() || null,
-      sku:form.sku.trim() || null, cost_price:Number(form.cost || 0),
-      selling_price:Number(form.price), notes:form.notes.trim() || null,
-      status:"available", added_by:session.user.id
+      name: form.name.trim(),
+      category: form.category,
+      size: form.size.trim() || null,
+      sku: form.sku.trim() || null,
+      cost_price: Number(form.cost || 0),
+      selling_price: Number(form.price),
+      notes: form.notes.trim() || null,
+      status: "available",
+      added_by: session.user.id,
+      photo_url: photoUrl
     };
-    const { error } = await supabase.from("inventory_items").insert(payload);
-    if (error) return flash(error.message);
-    setForm({ name:"", category:"T-Shirt", size:"", sku:"", cost:"", price:"", notes:"" });
-    setTab("inventory"); flash("Item added to shared inventory.");
+
+    const { error } = await supabase
+      .from("inventory_items")
+      .insert(payload);
+
+    if (error) throw error;
+
+    setForm({
+      name: "",
+      category: "T-Shirt",
+      size: "",
+      sku: "",
+      cost: "",
+      price: "",
+      notes: ""
+    });
+
+    setPhoto(null);
+    setTab("inventory");
+    flash("Product and photo saved successfully.");
+
+  } catch (error) {
+    console.error("Add item failed:", error);
+
+    if (uploadedPath) {
+      const { error: cleanupError } = await supabase.storage
+        .from("product-photos")
+        .remove([uploadedPath]);
+
+      if (cleanupError) {
+        console.error("Photo cleanup failed:", cleanupError);
+      }
+    }
+
+    flash(error.message || "Unable to save product.");
+  } finally {
+    setUploading(false);
   }
+}
+
 
   async function updateStatus(ids, status) {
     if (!ids.length) return;
