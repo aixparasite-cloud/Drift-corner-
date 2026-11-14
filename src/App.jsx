@@ -182,6 +182,45 @@ export default function App() {
 }
 
 
+  async function removeItem(item) {
+    if (profile?.role !== "admin" || !profile?.active) {
+      flash("Only an active admin can remove products.");
+      return;
+    }
+
+    if (item.status === "sold") {
+      flash("Sold products cannot be deleted.");
+      return;
+    }
+
+    if (!window.confirm(
+      `Permanently delete "${item.name}"? This cannot be undone.`
+    )) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("inventory_items")
+        .delete()
+        .eq("id", item.id)
+        .select("id");
+
+      if (error) throw error;
+
+      if (!data || data.length === 0) {
+        throw new Error(
+          "Product not deleted. Check admin permissions or sales history."
+        );
+      }
+
+      setSelected(prev => prev.filter(id => id !== item.id));
+      await loadInventory();
+      flash("Product removed successfully.");
+    } catch (error) {
+      console.error("Remove product failed:", error);
+      flash(error.message || "Unable to remove product.");
+    }
+  }
+
   async function updateStatus(ids, status) {
     if (!ids.length) return;
     const { data, error } = await supabase.rpc("update_item_status_bulk", { item_ids:ids, new_status:status });
