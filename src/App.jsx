@@ -25,6 +25,7 @@ export default function App() {
   const [password, setPassword] = useState("");
   const [authMode, setAuthMode] = useState("login");
   const [mobileMenu, setMobileMenu] = useState(false);
+  const [photoFile, setPhotoFile] = useState(null);
   const [form, setForm] = useState({ name:"", category:"T-Shirt", size:"", sku:"", cost:"", price:"", notes:"" });
   const [inviteEmail, setInviteEmail] = useState("");
 const [photo, setPhoto] = useState(null);
@@ -85,7 +86,7 @@ const [uploading, setUploading] = useState(false);
   }
   async function signOut() { await supabase.auth.signOut(); }
 
-  async function addItem(e) {
+ async function addItem(e) {
     e.preventDefault();
     const payload = {
       name: form.name.trim(), category:form.category, size:form.size.trim() || null,
@@ -191,7 +192,21 @@ const [uploading, setUploading] = useState(false);
     )}
 
     <div>
-      <b>{item.name}</b>
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+  {item.photo_url && (
+    <img
+      src={item.photo_url}
+      alt={item.name}
+      style={{
+        width: 56,
+        height: 56,
+        objectFit: "cover",
+        borderRadius: 8
+      }}
+    />
+  )}
+  <b>{item.name}</b>
+</div>
       <small>{item.category}</small>
     </div>
   </div>
