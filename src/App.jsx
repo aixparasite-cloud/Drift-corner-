@@ -25,10 +25,9 @@ export default function App() {
   const [password, setPassword] = useState("");
   const [authMode, setAuthMode] = useState("login");
   const [mobileMenu, setMobileMenu] = useState(false);
-  const [photoFile, setPhotoFile] = useState(null);
+  const [photo, setphoto] = useState(null);
   const [form, setForm] = useState({ name:"", category:"T-Shirt", size:"", sku:"", cost:"", price:"", notes:"" });
   const [inviteEmail, setInviteEmail] = useState("");
-const [photo, setPhoto] = useState(null);
 const [uploading, setUploading] = useState(false);
   useEffect(() => {
     if (!configured) return;
