@@ -94,3 +94,133 @@ export default function App() {
   let uploadedPath = null;
 
   try {
+    let photoUrl = null;
+
+    if (photo) {
+      if (!["image/jpeg", "image/png", "image/webp"].includes(photo.type)) {
+        throw new Error("Only JPG, PNG and WebP images are supported.");
+      }
+
+      if (photo.size > 5 * 1024 * 1024) {
+        throw new Error("Image must be 5 MB or smaller.");
+      }
+
+      const extension = photo.type === "image/png"
+        ? "png"
+        : photo.type === "image/webp"
+        ? "webp"
+        : "jpg";
+
+      uploadedPath = `${session.user.id}/${crypto.randomUUID()}.${extension}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("product-photos")
+        .upload(uploadedPath, photo, {
+          contentType: photo.type,
+          upsert: false
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage
+        .from("product-photos")
+        .getPublicUrl(uploadedPath);
+
+      photoUrl = data.publicUrl;
+    }
+
+    const payload = {
+      name: form.name.trim(),
+      category: form.category,
+      size: form.size.trim() || null,
+      sku: form.sku.trim() || null,
+      cost_price: Number(form.cost || 0),
+      selling_price: Number(form.price),
+      notes: form.notes.trim() || null,
+      status: "available",
+      added_by: session.user.id,
+      photo_url: photoUrl
+    };
+
+    const { error } = await supabase
+      .from("inventory_items")
+      .insert(payload);
+
+    if (error) throw error;
+
+    setForm({
+      name: "",
+      category: "T-Shirt",
+      size: "",
+      sku: "",
+      cost: "",
+      price: "",
+      notes: ""
+    });
+
+    setPhoto(null);
+    setTab("inventory");
+    flash("Product and photo saved successfully.");
+
+  } catch (error) {
+    console.error("Add item failed:", error);
+
+    if (uploadedPath) {
+      const { error: cleanupError } = await supabase.storage
+        .from("product-photos")
+        .remove([uploadedPath]);
+
+      if (cleanupError) {
+        console.error("Photo cleanup failed:", cleanupError);
+      }
+    }
+
+    flash(error.message || "Unable to save product.");
+  } finally {
+    setUploading(false);
+  }
+}
+
+
+  async function updateStatus(ids, status) {
+    if (!ids.length) return;
+    const { data, error } = await supabase.rpc("update_item_status_bulk", { item_ids:ids, new_status:status });
+    if (error) return flash(error.message);
+    setSelected([]); await loadAll();
+    flash(`${data ?? ids.length} item(s) updated.`);
+  }
+
+  async function sell(ids) {
+    if (!ids.length) return;
+    const { error } = await supabase.rpc("sell_items_bulk", { item_ids:ids });
+    if (error) return flash(error.message);
+    setSelected([]); await loadAll(); flash("Sale recorded.");
+  }
+
+  async function inviteMember(e) {
+    e.preventDefault();
+    const { error } = await supabase.rpc("create_member_invite", { invite_email:inviteEmail.trim().toLowerCase() });
+    if (error) return flash(error.message);
+    setInviteEmail(""); flash("Invitation created. Share the invite link from your Supabase Auth dashboard or invite workflow.");
+  }
+
+  async function removeMember(id) {
+    if (!window.confirm("Remove this member's access? Their sales history will remain.")) return;
+    const { error } = await supabase.rpc("remove_team_member", { member_id:id });
+    if (error) return flash(error.message);
+    await loadMembers(); flash("Member access removed.");
+  }
+
+  const activeItems = items.filter(x => x.status !== "sold");
+  const filtered = useMemo(() => items.filter(x =>
+    (filter === "all" || x.status === filter) &&
+    (`${x.name} ${x.sku || ""} ${x.category || ""}`).toLowerCase().includes(search.toLowerCase())
+  ), [items, filter, search]);
+  const revenue = sales.reduce((sum, s) => sum + Number(s.total_amount || 0), 0);
+  const costs = sales.reduce((sum, s) => sum + Number(s.total_cost || 0), 0);
+  const expenses = sales.reduce((sum, s) => sum + Number(s.expenses || 0), 0);
+  const profit = revenue - costs - expenses;
+  const admin = profile?.role === "admin";
+
+if (!configured) return <SetupScreen />;
+if (!session) return <AuthScreen {...{email,setEmail,password,setPassword,authMode,setAuthMode,authenticate,loading,notice}} />;
