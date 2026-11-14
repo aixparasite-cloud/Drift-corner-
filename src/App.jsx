@@ -27,7 +27,8 @@ export default function App() {
   const [mobileMenu, setMobileMenu] = useState(false);
   const [form, setForm] = useState({ name:"", category:"T-Shirt", size:"", sku:"", cost:"", price:"", notes:"" });
   const [inviteEmail, setInviteEmail] = useState("");
-
+const [photo, setPhoto] = useState(null);
+const [uploading, setUploading] = useState(false);
   useEffect(() => {
     if (!configured) return;
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
@@ -168,7 +169,34 @@ export default function App() {
           <div className="toolbar"><div className="searchbox"><Search size={17}/><input placeholder="Search item, SKU or category..." value={search} onChange={e=>setSearch(e.target.value)}/></div><select value={filter} onChange={e=>{setFilter(e.target.value);setSelected([])}}><option value="all">All status</option><option value="available">Available</option><option value="reserved">Reserved</option><option value="sold">Sold out</option></select></div>
           {selected.length>0 && <div className="bulkbar"><b>{selected.length} selected</b><div><button className="btn success small" onClick={()=>sell(selected)}>Sell selected</button><button className="btn warning small" onClick={()=>updateStatus(selected,"reserved")}>Reserve</button><button className="btn ghost small" onClick={()=>setSelected([])}>Clear</button></div></div>}
           <div className="table-wrap"><table><thead><tr><th><input type="checkbox" checked={filtered.filter(x=>x.status!=="sold").length>0 && filtered.filter(x=>x.status!=="sold").every(x=>selected.includes(x.id))} onChange={e=>setSelected(e.target.checked?filtered.filter(x=>x.status!=="sold").map(x=>x.id):[])}/></th><th>Product</th><th>SKU</th><th>Size</th><th>Price</th><th>Status</th><th>Added by</th><th>Action</th></tr></thead><tbody>
-            {filtered.map(item=><tr key={item.id}><td><input type="checkbox" disabled={item.status==="sold"} checked={selected.includes(item.id)} onChange={e=>setSelected(e.target.checked?[...selected,item.id]:selected.filter(x=>x!==item.id))}/></td><td><b>{item.name}</b><small>{item.category}</small></td><td>{item.sku || "—"}</td><td>{item.size || "—"}</td><td><b>{money(item.selling_price)}</b></td><td><Status status={item.status}/></td><td>{item.added_by_profile?.full_name || "—"}</td><td><div className="row-actions">{item.status==="available" && <><button className="mini-action" onClick={()=>sell([item.id])}>Sell</button><button className="mini-action" onClick={()=>updateStatus([item.id],"reserved")}>Reserve</button></>}{item.status==="reserved" && <button className="mini-action" onClick={()=>updateStatus([item.id],"available")}>Release</button>}</div></td></tr>)}
+            {filtered.map(item=><tr key={item.id}><td><input type="checkbox" disabled={item.status==="sold"} checked={selected.includes(item.id)} onChange={e=>setSelected(e.target.checked?[...selected,item.id]:selected.filter(x=>x!==item.id))}/></td>
+<td>
+  <div style={{
+    display: "flex",
+    alignItems: "center",
+    gap: 12
+  }}>
+    {item.photo_url && (
+      <img
+        src={item.photo_url}
+        alt={item.name}
+        loading="lazy"
+        style={{
+          width: 56,
+          height: 56,
+          objectFit: "cover",
+          borderRadius: 8
+        }}
+      />
+    )}
+
+    <div>
+      <b>{item.name}</b>
+      <small>{item.category}</small>
+    </div>
+  </div>
+</td>
+<td>{item.sku || "—"}</td><td>{item.size || "—"}</td><td><b>{money(item.selling_price)}</b></td><td><Status status={item.status}/></td><td>{item.added_by_profile?.full_name || "—"}</td><td><div className="row-actions">{item.status==="available" && <><button className="mini-action" onClick={()=>sell([item.id])}>Sell</button><button className="mini-action" onClick={()=>updateStatus([item.id],"reserved")}>Reserve</button></>}{item.status==="reserved" && <button className="mini-action" onClick={()=>updateStatus([item.id],"available")}>Release</button>}</div></td></tr>)}
           </tbody></table>{filtered.length===0 && <div className="empty">No matching products. Add your first thrift piece.</div>}</div>
         </section>}
 
@@ -180,7 +208,31 @@ export default function App() {
           <Field label="Purchase cost (₹)"><input type="number" min="0" step="0.01" value={form.cost} onChange={e=>setForm({...form,cost:e.target.value})} placeholder="What the business paid"/></Field>
           <Field label="Selling price (₹)" required><input required type="number" min="1" step="0.01" value={form.price} onChange={e=>setForm({...form,price:e.target.value})} placeholder="Expected selling price"/></Field>
           <div className="full"><Field label="Notes"><textarea rows="3" value={form.notes} onChange={e=>setForm({...form,notes:e.target.value})} placeholder="Condition, flaws, brand details..."/></Field></div>
-          <div className="full form-footer"><button className="btn primary" type="submit"><Plus size={16}/> Save item</button></div>
+         
+<div className="full">
+  <Field label="Product photo (optional)">
+    <input
+      type="file"
+      accept="image/jpeg,image/png,image/webp"
+      onChange={e => setPhoto(e.target.files?.[0] || null)}
+    />
+  </Field>
+
+  {photo && (
+    <img
+      src={URL.createObjectURL(photo)}
+      alt="Selected product preview"
+      style={{
+        width: 160,
+        height: 160,
+        objectFit: "cover",
+        borderRadius: 12,
+        marginTop: 12
+      }}
+    />
+  )}
+</div>
+ <div className="full form-footer"><button className="btn primary" type="submit"><Plus size={16}/> Save item</button></div>
         </form></section>}
 
         {tab==="sales" && <><div className="stats-grid finance"><Stat label="Sales revenue" value={money(revenue)} tone="green"/><Stat label="Product cost" value={money(costs)}/><Stat label="Expenses" value={money(expenses)} tone="amber"/><Stat label="Gross profit*" value={money(profit)} tone={profit>=0?"green":"red"}/></div><section className="panel"><div className="panel-heading"><div><h2>Member performance</h2><p>Revenue credited to the member who completed each sale.</p></div></div><div className="member-sales">{members.map(m=>{const mine=sales.filter(s=>s.sold_by===m.id);const total=mine.reduce((a,s)=>a+Number(s.total_amount||0),0);const count=mine.reduce((a,s)=>a+(s.sale_lines||[]).reduce((b,l)=>b+Number(l.quantity||1),0),0);return <div className="member-row" key={m.id}><div className="member-avatar">{(m.full_name||m.email||"?")[0].toUpperCase()}</div><div className="member-info"><b>{m.full_name||m.email}</b><small>{count} item(s) sold</small></div><strong>{money(total)}</strong></div>})}</div><p className="footnote">*Profit shown here is revenue minus recorded product cost and expenses. Add operating expenses in the accounting module when enabled.</p></section><section className="panel"><div className="panel-heading"><div><h2>Recent sales</h2><p>Recorded transactions across the team.</p></div></div><div className="table-wrap"><table><thead><tr><th>Date</th><th>Sold by</th><th>Items</th><th>Revenue</th><th>Cost</th></tr></thead><tbody>{sales.map(s=><tr key={s.id}><td>{new Date(s.created_at).toLocaleString("en-IN")}</td><td>{s.seller?.full_name||"Member"}</td><td>{(s.sale_lines||[]).map(l=>l.item?.name).filter(Boolean).join(", ")}</td><td>{money(s.total_amount)}</td><td>{money(s.total_cost)}</td></tr>)}</tbody></table>{!sales.length&&<div className="empty">No sales recorded yet.</div>}</div></section></>}
