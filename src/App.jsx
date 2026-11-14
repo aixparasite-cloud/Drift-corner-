@@ -318,7 +318,19 @@ export default function App() {
     </div>
   </div>
 </td>
-<td>{item.sku || "—"}</td><td>{item.size || "—"}</td><td><b>{money(item.selling_price)}</b></td><td><Status status={item.status}/></td><td>{item.added_by_profile?.full_name || "—"}</td><td><div className="row-actions">{item.status==="available" && <><button className="mini-action" onClick={()=>sell([item.id])}>Sell</button><button className="mini-action" onClick={()=>updateStatus([item.id],"reserved")}>Reserve</button></>}{item.status==="reserved" && <button className="mini-action" onClick={()=>updateStatus([item.id],"available")}>Release</button>}</div></td></tr>)}
+<td>{item.sku || "—"}</td><td>{item.size || "—"}</td><td><b>{money(item.selling_price)}</b></td><td><Status status={item.status}/></td><td>{item.added_by_profile?.full_name || "—"}</td><td><div className="row-actions">
+{admin && item.status !== "sold" && (
+  <button
+    type="button"
+    className="mini-action"
+    style={{ color: "#ef4444" }}
+    onClick={() => removeItem(item)}
+    title="Permanently delete product"
+  >
+    Remove
+  </button>
+)}
+{item.status==="available" && <><button className="mini-action" onClick={()=>sell([item.id])}>Sell</button><button className="mini-action" onClick={()=>updateStatus([item.id],"reserved")}>Reserve</button></>}{item.status==="reserved" && <button className="mini-action" onClick={()=>updateStatus([item.id],"available")}>Release</button>}</div></td></tr>)}
           </tbody></table>{filtered.length===0 && <div className="empty">No matching products. Add your first thrift piece.</div>}</div>
         </section>}
 
